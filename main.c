@@ -13,6 +13,13 @@
 
 // --- Estruturas ---
 
+typedef enum
+{
+    TIPO_CHAO,
+    TIPO_PLATAFORMA,
+    TIPO_PAREDE
+} ItemType;
+
 typedef struct Player
 {
     Vector2 position;
@@ -32,6 +39,8 @@ typedef struct EnvItem
     Rectangle rect;
     int blocking;
     Color color;
+    ItemType type;
+
 } EnvItem;
 
 // --- Declaração de Funções ---
@@ -56,6 +65,9 @@ int main(void)
     player.speed = 0;
     player.canJump = false;
 
+    Texture2D background = LoadTexture("Assets 1024 Cave/Square - Black.jpg");
+
+    Texture2D plataforma = LoadTexture("Assets 1024 Cave/Cave - Floor.png");
 
     Texture2D pinkRun = LoadTexture("1 Pink_Monster/Pink_Monster_Run_6.png");
     Texture2D pinkIdle = LoadTexture("1 Pink_Monster/Pink_Monster_Idle_4.png");
@@ -84,13 +96,13 @@ int main(void)
     // Itens do Cenário
     EnvItem envItems[42] = {
         // {x(maior mais a esquerda),y(menor mais a cima),largura,altura}
-        {{0, 0, 1000, 400}, 0, LIGHTGRAY},  // tela
-        {{0, -100, 30, 600}, 1, GRAY},      // parede
-        {{0, 400, 2000, 200}, 1, GRAY},     // chao
-        {{300, 250, 400, 10}, 1, GRAY},     // plataforma
-        {{250, 325, 100, 10}, 1, GRAY},     // plataforma
-        {{650, 325, 100, 10}, 1, GRAY},     // plataforma
-        {{170, 370, 30, 30}, 1, DARKGRAY}}; // bloco
+        {{0, 0, 1000, 400}, 0, LIGHTGRAY},               // tela
+        {{0, -100, 30, 600}, 1, GRAY},                   // parede
+        {{0, 400, 2000, 200}, 1, GRAY},                  // chao
+        {{300, 250, 400, 10}, 1, GRAY},                  // plataforma
+        {{250, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA}, // plataforma
+        {{650, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA}, // plataforma
+        {{170, 370, 30, 30}, 1, DARKGRAY}};              // bloco
     int envItemsLength = sizeof(envItems) / sizeof(envItems[0]);
 
     for (int i = 7; i < 42; i++)
@@ -101,7 +113,7 @@ int main(void)
             {
                 float novaplataformaX = 650 + ((i - 6) * 200);
 
-                envItems[i] = (EnvItem){{novaplataformaX, 325, 100, 10}, 1, GRAY};
+                envItems[i] = (EnvItem){{novaplataformaX, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA};
             }
             else
             {
@@ -211,6 +223,15 @@ int main(void)
                 player.currentFrame = 0;
                 player.framesCounter = 0;
             }
+
+            player.framesCounter++;
+            if (player.framesCounter >= (60 / player.framesSpeed))
+            {
+                player.framesCounter = 0;
+                player.currentFrame++;
+                if (player.currentFrame > 3)
+                    player.currentFrame = 0;
+            }
         }
 
         // Atualizando valores de divisao para diferetes sprites
@@ -272,13 +293,45 @@ int main(void)
         //  Desenho
         BeginDrawing();
         ClearBackground(LIGHTGRAY);
+        ClearBackground(SKYBLUE);
+        // DrawTexture(background, 0, 0, WHITE);
+        // DrawTextureEx(background, (Vector2){0, 0}, 0.0f, 2.0f, WHITE);
 
         BeginMode2D(camera);
 
         // Desenha o cenario
         for (int i = 0; i < envItemsLength; i++)
-            DrawRectangleRec(envItems[i].rect, envItems[i].color);
+        {
+            EnvItem *ei = envItems + i;
 
+            if (ei->type == TIPO_PLATAFORMA)
+            {
+
+                float margemX = 60.0f;
+                float margemY = 0.0f;
+
+                
+                Rectangle recortePlataforma = {
+                    0.0f + margemX,
+                    0.0f + margemY,
+                    430.0f,
+                    136.0f
+                };
+
+                Rectangle destRec = {ei->rect.x-20, ei->rect.y-25, ei->rect.width+40, ei->rect.height+30};
+
+                Vector2 origin = {0.0f, 0.0f};
+
+                DrawTexturePro(plataforma, recortePlataforma, destRec, origin, 0.0f, WHITE);
+
+                // DrawTextureRec(plataforma, recortePlataforma ,(Vector2){ei->rect.x-18, ei->rect.y}, WHITE);
+            }
+            else
+            {
+
+                DrawRectangleRec(ei->rect, ei->color);
+            }
+        }
         // DEBUG: Desenha o retângulo de colisão para saber onde esta a física
         // Rectangle playerRect = { player.position.x - 20, player.position.y - 40, 40.0f, 40.0f };
         // DrawRectangleRec(playerRect, Fade(RED, 0.5f));
@@ -317,6 +370,10 @@ int main(void)
     }
 
     // Descarregar textura
+
+    UnloadTexture(background);
+    UnloadTexture(plataforma);
+
     UnloadTexture(player.texture);
 
     UnloadTexture(pinkRun);
