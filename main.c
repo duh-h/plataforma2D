@@ -16,6 +16,7 @@
 typedef enum
 {
     TIPO_CHAO,
+    TIPO_PLATAFORMA_PEDRA,
     TIPO_PLATAFORMA,
     TIPO_PAREDE
 } ItemType;
@@ -65,9 +66,13 @@ int main(void)
     player.speed = 0;
     player.canJump = false;
 
-    Texture2D background = LoadTexture("Assets 1024 Cave/Square - Black.jpg");
+    Texture2D background = LoadTexture("PixelFantasy_Caves_1.0/background4a.png");
+    Texture2D backgroundFundo1 = LoadTexture("PixelFantasy_Caves_1.0/background3.png");
+    Texture2D backgroundFundo2 = LoadTexture("PixelFantasy_Caves_1.0/background2.png");
+    Texture2D backgroundFundo3 = LoadTexture("PixelFantasy_Caves_1.0/background1.png");
 
     Texture2D plataforma = LoadTexture("Assets 1024 Cave/Cave - Floor.png");
+    Texture2D plataformaPedra = LoadTexture("Assets 1024 Cave/Cave - Platforms.png");
 
     Texture2D pinkRun = LoadTexture("1 Pink_Monster/Pink_Monster_Run_6.png");
     Texture2D pinkIdle = LoadTexture("1 Pink_Monster/Pink_Monster_Idle_4.png");
@@ -94,18 +99,18 @@ int main(void)
     player.frameRec = (Rectangle){0.0f, 0.0f, (float)player.texture.width / 6, (float)player.texture.height};
 
     // Itens do Cenário
-    EnvItem envItems[42] = {
+    EnvItem envItems[41] = {
         // {x(maior mais a esquerda),y(menor mais a cima),largura,altura}
-        {{0, 0, 1000, 400}, 0, LIGHTGRAY},               // tela
-        {{0, -100, 30, 600}, 1, GRAY},                   // parede
-        {{0, 400, 2000, 200}, 1, GRAY},                  // chao
-        {{300, 250, 400, 10}, 1, GRAY},                  // plataforma
-        {{250, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA}, // plataforma
-        {{650, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA}, // plataforma
-        {{170, 370, 30, 30}, 1, DARKGRAY}};              // bloco
+        //{{0, 0, 1000, 400}, 0, LIGHTGRAY},               // tela
+        {{0, -100, 30, 600}, 1, GRAY},                             // parede
+        {{0, 400, 2000, 100}, 1, GRAY},                            // chao
+        {{300, 250, 400, 10}, 1, GRAY},                            // plataforma
+        {{250, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA},           // plataforma
+        {{650, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA},           // plataforma
+        {{170, 370, 30, 30}, 1, DARKGRAY, TIPO_PLATAFORMA_PEDRA}}; // bloco
     int envItemsLength = sizeof(envItems) / sizeof(envItems[0]);
 
-    for (int i = 7; i < 42; i++)
+    for (int i = 7; i < 41; i++)
     {
         if (i <= 22)
         {
@@ -120,7 +125,7 @@ int main(void)
 
                 float novapedraX = 675 + ((i - 6) * 200);
 
-                envItems[i] = (EnvItem){{novapedraX, 370, 30, 30}, 1, DARKGRAY};
+                envItems[i] = (EnvItem){{novapedraX, 370, 30, 30}, 1, DARKGRAY, TIPO_PLATAFORMA_PEDRA};
             };
         }
         else
@@ -288,14 +293,32 @@ int main(void)
         if (IsKeyPressed(KEY_C))
             cameraOption = (cameraOption + 1) % cameraUpdatersLength;
 
-        cameraUpdaters[cameraOption](&camera, &player, envItems, envItemsLength, deltaTime, screenWidth, screenHeight);
+        cameraUpdaters[cameraOption](&camera, &player, envItems, envItemsLength, deltaTime, screenWidth, screenHeight / 0.65f);
 
         //  Desenho
         BeginDrawing();
         ClearBackground(LIGHTGRAY);
-        ClearBackground(SKYBLUE);
-        // DrawTexture(background, 0, 0, WHITE);
-        // DrawTextureEx(background, (Vector2){0, 0}, 0.0f, 2.0f, WHITE);
+        ClearBackground(DARKGRAY);
+
+        // DrawTexture(backgroundFundo3, 0, 0, WHITE);
+
+        float screenW = (float)GetScreenWidth();
+        float screenH = (float)GetScreenHeight();
+
+        Rectangle dest = {0, 0, screenW, screenH};
+
+        Rectangle src3 = {camera.target.x * 0.05f, 0, (float)backgroundFundo3.width, (float)backgroundFundo3.height};
+        DrawTexturePro(backgroundFundo3, src3, dest, (Vector2){0, 0}, 0.0f, WHITE);
+
+        Rectangle src2 = {camera.target.x * 0.15f, 0, (float)backgroundFundo2.width, (float)backgroundFundo2.height};
+        DrawTexturePro(backgroundFundo2, src2, dest, (Vector2){0, 0}, 0.0f, WHITE);
+
+        Rectangle src1 = {camera.target.x * 0.30f, 0, (float)backgroundFundo1.width, (float)backgroundFundo1.height};
+        DrawTexturePro(backgroundFundo1, src1, dest, (Vector2){0, 0}, 0.0f, WHITE);
+
+        Rectangle src0 = {camera.target.x * 0.40f, 0, (float)backgroundFundo1.width, (float)backgroundFundo1.height};
+        DrawTexturePro(background, src0, dest, (Vector2){0, 0}, 0.0f, WHITE);
+
 
         BeginMode2D(camera);
 
@@ -306,25 +329,54 @@ int main(void)
 
             if (ei->type == TIPO_PLATAFORMA)
             {
+                /*
+                Explicaçao do recorte
+                A imagem fonte esta em 2048x2048
+                Localize a figura desejada e pegar desde o ponto zero ate a figura total
+                Ex: um recorte de uma pedra no meio contendo ela esta 1024x1024
+                    se pedra tem tamanho 100x100
+                    margemX = 1024-100 = 924
+                    margemY = 924
+                    h = 100
+                    w = 100
+                */
 
                 float margemX = 60.0f;
                 float margemY = 0.0f;
 
-                
                 Rectangle recortePlataforma = {
                     0.0f + margemX,
                     0.0f + margemY,
                     430.0f,
-                    136.0f
-                };
+                    136.0f};
 
-                Rectangle destRec = {ei->rect.x-20, ei->rect.y-25, ei->rect.width+40, ei->rect.height+30};
+                Rectangle destRec = {ei->rect.x - 20, ei->rect.y - 25, ei->rect.width + 40, ei->rect.height + 30};
 
                 Vector2 origin = {0.0f, 0.0f};
 
                 DrawTexturePro(plataforma, recortePlataforma, destRec, origin, 0.0f, WHITE);
 
                 // DrawTextureRec(plataforma, recortePlataforma ,(Vector2){ei->rect.x-18, ei->rect.y}, WHITE);
+            }
+            else if (ei->type == TIPO_PLATAFORMA_PEDRA)
+            {
+
+                float margemX = 216.0f;
+                float margemY = 216.0f;
+
+                // 1090x 430 / 920 x 300
+
+                Rectangle recortePedra = {
+                    0.0f + margemX,
+                    0.0f + margemY,
+                    196.0f,
+                    196.0f};
+
+                Rectangle destRec = {ei->rect.x - 5, ei->rect.y - 2, ei->rect.width + 10, ei->rect.height + 2};
+
+                Vector2 origin = {0.0f, 0.0f};
+
+                DrawTexturePro(plataformaPedra, recortePedra, destRec, origin, 0.0f, WHITE);
             }
             else
             {
@@ -372,7 +424,12 @@ int main(void)
     // Descarregar textura
 
     UnloadTexture(background);
+    UnloadTexture(backgroundFundo1);
+    UnloadTexture(backgroundFundo2);
+    UnloadTexture(backgroundFundo3);
+
     UnloadTexture(plataforma);
+    UnloadTexture(plataformaPedra);
 
     UnloadTexture(player.texture);
 
