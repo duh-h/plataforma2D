@@ -10,6 +10,7 @@
 #define G 750
 #define PLAYER_JUMP_SPD 350.0f
 #define PLAYER_HOR_SPD 200.0f
+#define MAX_PEDRAS 5
 
 // --- Estruturas ---
 
@@ -18,8 +19,16 @@ typedef enum
     TIPO_CHAO,
     TIPO_PLATAFORMA_PEDRA,
     TIPO_PLATAFORMA,
+    TIPO_TRIANGULO_PRA_CIMA,
     TIPO_PAREDE
 } ItemType;
+
+typedef struct
+{
+    Rectangle rect;
+    float speed;
+    bool active;
+} FallingBlock;
 
 typedef struct Player
 {
@@ -45,9 +54,9 @@ typedef struct EnvItem
 } EnvItem;
 
 // --- Declaração de Funções ---
-void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta);
+void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, FallingBlock *pedras, float delta);
 void UpdateCameraCenter(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
-void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
+void UpdateCameraCenterInsideMap(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);  
 void UpdateCameraCenterSmoothFollow(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
 void UpdateCameraEvenOutOnLanding(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
 void UpdateCameraPlayerBoundsPush(Camera2D *camera, Player *player, EnvItem *envItems, int envItemsLength, float delta, int width, int height);
@@ -72,6 +81,8 @@ int main(void)
     Texture2D backgroundFundo3 = LoadTexture("PixelFantasy_Caves_1.0/background1.png");
 
     Texture2D plataforma = LoadTexture("Assets 1024 Cave/Cave - Floor.png");
+    Texture2D plataformaTriangulo = LoadTexture("Assets 1024 Cave/Cave - SmallRocks.png");
+    Texture2D plataformaTrianguloCaindo = LoadTexture("Assets 1024 Cave/Cave - SmallRocks.png");
     Texture2D plataformaPedra = LoadTexture("Assets 1024 Cave/Cave - Platforms.png");
 
     Texture2D pinkRun = LoadTexture("1 Pink_Monster/Pink_Monster_Run_6.png");
@@ -99,20 +110,31 @@ int main(void)
     player.frameRec = (Rectangle){0.0f, 0.0f, (float)player.texture.width / 6, (float)player.texture.height};
 
     // Itens do Cenário
-    EnvItem envItems[41] = {
+
+    FallingBlock pedras[MAX_PEDRAS];
+
+    for (int i = 0; i < MAX_PEDRAS; i++)
+    {
+        pedras[i].active = true;
+        pedras[i].speed = (float)GetRandomValue(200, 400); // Velocidades diferentes
+        pedras[i].rect = (Rectangle){(float)GetRandomValue(200, 1800), (float)GetRandomValue(-500, -100), 16, 35};
+    }
+
+    EnvItem envItems[42] = {
         // {x(maior mais a esquerda),y(menor mais a cima),largura,altura}
         //{{0, 0, 1000, 400}, 0, LIGHTGRAY},               // tela
-        {{0, -100, 30, 600}, 1, GRAY},                             // parede
-        {{0, 400, 2000, 100}, 1, GRAY},                            // chao
-        {{300, 250, 400, 10}, 1, GRAY},                            // plataforma
-        {{250, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA},           // plataforma
-        {{650, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA},           // plataforma
-        {{170, 370, 30, 30}, 1, DARKGRAY, TIPO_PLATAFORMA_PEDRA}}; // bloco
+        //{{0, -100, 30, 600}, 1, GRAY},                   // parede
+        {{0, 400, 2000, 100}, 1, GRAY}, // chao
+        {{100, 365, 16, 35}, 0, GRAY, TIPO_TRIANGULO_PRA_CIMA},
+        {{30, 365, 16, 35}, 0, GRAY, TIPO_TRIANGULO_PRA_CIMA},
+        {{250, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA},             // plataforma
+        {{650, 325, 100, 10}, 1, GRAY, TIPO_PLATAFORMA},             // plataforma
+        {{170, 365, 16, 35}, 0, DARKGRAY, TIPO_TRIANGULO_PRA_CIMA}}; // bloco
     int envItemsLength = sizeof(envItems) / sizeof(envItems[0]);
 
-    for (int i = 7; i < 41; i++)
+    for (int i = 7; i < 42; i++)
     {
-        if (i <= 22)
+        if (i < 22)
         {
             if (i % 2 == 0)
             {
@@ -128,12 +150,18 @@ int main(void)
                 envItems[i] = (EnvItem){{novapedraX, 370, 30, 30}, 1, DARKGRAY, TIPO_PLATAFORMA_PEDRA};
             };
         }
-        else
+        else if (i >= 22 && i <= 32)
         {
 
-            float novapedraX = 675 + ((i - 6) * 200);
+            float novaplataformaX = -200 - ((i - 22) * 200);
 
-            envItems[i] = (EnvItem){{novapedraX, 370, 30, 30}, 1, DARKGRAY};
+            envItems[i] = (EnvItem){{novaplataformaX, 340, 16, 35}, 1, DARKGRAY, TIPO_TRIANGULO_PRA_CIMA};
+        }
+        else
+        {
+            float novatrianguloX = 0 - ((i - 32) * 200);
+
+            envItems[i] = (EnvItem){{novatrianguloX, 370, 100, 10}, 1, DARKGRAY, TIPO_PLATAFORMA};
         }
     }
 
@@ -164,8 +192,24 @@ int main(void)
     {
         float deltaTime = GetFrameTime();
 
-        // Atualiza Física
-        UpdatePlayer(&player, envItems, envItemsLength, deltaTime);
+        // Física Pedra caindo
+        UpdatePlayer(&player, envItems, envItemsLength, pedras, deltaTime);
+        for (int i = 0; i < MAX_PEDRAS; i++)
+        {
+
+            if (pedras[i].active)
+            {
+
+                pedras[i].rect.y += pedras[i].speed * deltaTime;
+
+                if (pedras[i].rect.y > screenHeight)
+                {
+                    pedras[i].rect.y = 0;
+                    // lugares diferentes
+                    pedras[i].rect.x = (float)GetRandomValue(200, 1800);
+                }
+            }
+        }
 
         // Atualizando valores de divisao para diferetes sprites
         int divisor = 4; // Valor inicial (sprite idle)
@@ -319,10 +363,36 @@ int main(void)
         Rectangle src0 = {camera.target.x * 0.40f, 0, (float)backgroundFundo1.width, (float)backgroundFundo1.height};
         DrawTexturePro(background, src0, dest, (Vector2){0, 0}, 0.0f, WHITE);
 
-
         BeginMode2D(camera);
 
         // Desenha o cenario
+
+        // Desenha pedra caindo
+        for (int i = 0; i < MAX_PEDRAS; i++)
+        {
+            if (pedras[i].active)
+            {
+                float margemX = 1824.0f;
+                float margemY = 60.0f;
+
+                Rectangle recortePedraCaindo = {
+                    0.0f + margemX,
+                    0.0f + margemY,
+                    175.0f,
+                    260.0f};
+
+                Rectangle destRec = {
+                    pedras[i].rect.x - 5,
+                    pedras[i].rect.y - 2,
+                    pedras[i].rect.width + 10,
+                    pedras[i].rect.height + 2};
+
+                Vector2 origin = {0.0f, 0.0f};
+
+                DrawTexturePro(plataformaTrianguloCaindo, recortePedraCaindo, destRec, origin, 0.0f, WHITE);
+                // DrawRectangleRec(pedra.rect, RED);
+            }
+        }
         for (int i = 0; i < envItemsLength; i++)
         {
             EnvItem *ei = envItems + i;
@@ -378,6 +448,24 @@ int main(void)
 
                 DrawTexturePro(plataformaPedra, recortePedra, destRec, origin, 0.0f, WHITE);
             }
+            else if (ei->type == TIPO_TRIANGULO_PRA_CIMA)
+            {
+
+                float margemX = 1600.0f;
+                float margemY = 1150.0f;
+
+                Rectangle recortePedra = {
+                    0.0f + margemX,
+                    0.0f + margemY,
+                    200.0f,
+                    250.0f};
+
+                Rectangle destRec = {ei->rect.x - 5, ei->rect.y - 2, ei->rect.width + 10, ei->rect.height + 2};
+
+                Vector2 origin = {0.0f, 0.0f};
+
+                DrawTexturePro(plataformaTriangulo, recortePedra, destRec, origin, 0.0f, WHITE);
+            }
             else
             {
 
@@ -429,7 +517,9 @@ int main(void)
     UnloadTexture(backgroundFundo3);
 
     UnloadTexture(plataforma);
+    UnloadTexture(plataformaTrianguloCaindo);
     UnloadTexture(plataformaPedra);
+    UnloadTexture(plataformaTriangulo);
 
     UnloadTexture(player.texture);
 
@@ -451,7 +541,7 @@ int main(void)
 
 // Funções Auxiliares (Física e Câmera)
 
-void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float delta)
+void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, FallingBlock *pedras, float delta)
 {
     if (IsKeyDown(KEY_LEFT))
     {
@@ -470,7 +560,7 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
     }
 
     bool hitObstacle = false;
-    float larguraColisao = 40.0f;
+    float larguraColisao = 30.0f;
 
     for (int i = 0; i < envItemsLength; i++)
     {
@@ -486,6 +576,14 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
             ei->rect.y >= p->y &&
             ei->rect.y <= p->y + player->speed * delta)
         {
+            if (ei->type == TIPO_TRIANGULO_PRA_CIMA)
+            {
+
+                player->position = (Vector2){400, 280};
+                player->speed = 0;
+                return;
+            }
+
             hitObstacle = true;
             player->speed = 0.0f;
             p->y = ei->rect.y;
@@ -501,8 +599,16 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
         // Retângulo de colisão do corpo
         Rectangle playerRect = {player->position.x - 15, player->position.y - 55, 30, 50};
 
+        if (CheckCollisionRecs(playerRect, pedras[i].rect))
+        {
+            player->position = (Vector2){400, 280};
+            player->speed = 0;
+            pedras[i].rect.y = -100;
+        }
+
         if (CheckCollisionRecs(playerRect, ei->rect))
         {
+
             // Ignora o chão onde o pé está pisando
             if (ei->rect.y < player->position.y - 15)
             {
@@ -515,6 +621,13 @@ void UpdatePlayer(Player *player, EnvItem *envItems, int envItemsLength, float d
                     else if (IsKeyDown(KEY_LEFT))
                         player->position.x = ei->rect.x + ei->rect.width + 16;
                 }
+            }
+
+            if (ei->type == TIPO_TRIANGULO_PRA_CIMA)
+            {
+
+                player->position = (Vector2){400, 280};
+                player->speed = 0;
             }
         }
     }
